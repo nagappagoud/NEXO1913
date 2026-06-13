@@ -1,0 +1,8 @@
+{
+  "name": "NEXO",
+  "description": "Futuristic Cyberpunk Smart Attendance Management System for Admins, Lecturers, and Students.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
