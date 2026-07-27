@@ -3,13 +3,15 @@ import { motion } from 'motion/react';
 import { 
   Users, UserPlus, BookOpen, Clock, BarChart3, Settings, LogOut, Trash2, 
   Plus, Search, Edit2, ShieldAlert, CheckCircle2, XCircle, RefreshCw, Layers,
-  Eye, Download, Activity, Fingerprint, Camera, Video
+  Eye, Download, Activity, Fingerprint, Camera, Video, Database
 } from 'lucide-react';
 import { apiClient } from '../api';
 import { Student, Lecturer, Subject, TimetableSlot, AttendanceRecord, UserSession, DEPARTMENTS, SEMESTERS, SECTIONS, StudentFaceProfile } from '../types';
 import CalendarView from './CalendarView';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import BiometricRegistration from './BiometricRegistration';
+import SupabaseStatusModal from './SupabaseStatusModal';
+
 
 interface AdminPortalProps {
   session: UserSession;
@@ -32,6 +34,7 @@ export default function AdminPortal({ session, onLogout }: AdminPortalProps) {
 
   // Sidebar mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
 
   // Search/Filter Search values
   const [searchQuery, setSearchQuery] = useState('');
@@ -544,7 +547,16 @@ export default function AdminPortal({ session, onLogout }: AdminPortalProps) {
           </div>
         </div>
 
-        <div className="flex items-center space-x-5">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <button
+            onClick={() => setShowSupabaseModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 border border-emerald-500/30 bg-emerald-950/30 hover:bg-emerald-500/20 rounded text-xs font-mono font-bold text-emerald-400 transition-all cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+            title="Open Supabase Cloud Database Console"
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">SUPABASE_DB</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
+          </button>
           <div className="hidden lg:flex flex-col items-end text-right">
             <span className="text-white text-xs font-semibold">{session.user.name}</span>
             <span className="text-[9px] text-cyan-400 font-mono tracking-widest uppercase mt-0.5">MATRIX_LEVEL: 0 // DECRYPTOR</span>
@@ -2235,6 +2247,31 @@ export default function AdminPortal({ session, onLogout }: AdminPortalProps) {
                   </div>
                 </div>
 
+                {/* Supabase Cloud Database Integration Panel */}
+                <div className="border-t border-cyan-500/15 pt-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-950/20 border border-emerald-500/30 p-4 rounded-xl">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Database className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs font-bold text-white font-mono uppercase">SUPABASE CLOUD DATABASE INTEGRATION</span>
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">
+                          qqjfpimvewpchyoxnjht
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        Endpoint: <code className="text-cyan-300 font-mono">https://qqjfpimvewpchyoxnjht.supabase.co</code>. Real-time synchronization active for students, lecturers, timetables, attendance, and biometric records.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSupabaseModal(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-lg text-xs font-mono font-bold tracking-wider transition-all duration-200 cursor-pointer shrink-0 uppercase shadow-lg shadow-emerald-900/20"
+                    >
+                      OPEN SUPABASE CONSOLE
+                    </button>
+                  </div>
+                </div>
+
                 {/* Advanced Security & Biometric Purge Tool */}
                 <div className="border-t border-cyan-500/15 pt-5 space-y-4">
                   <div>
@@ -2410,6 +2447,12 @@ export default function AdminPortal({ session, onLogout }: AdminPortalProps) {
           </div>
         );
       })()}
+
+      {/* Supabase Integration & Status Console Modal */}
+      <SupabaseStatusModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
+      />
     </div>
   );
 }

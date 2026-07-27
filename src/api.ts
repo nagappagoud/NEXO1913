@@ -278,5 +278,30 @@ export const apiClient = {
       throw new Error(err.error || 'Failed to execute purge request.');
     }
     return res.json();
+  },
+
+  // ================= SUPABASE INTEGRATION =================
+  async getSupabaseStatus(): Promise<{
+    connected: boolean;
+    projectUrl: string;
+    projectId: string;
+    tablesDetected: string[];
+    tablesMissing: string[];
+    lastChecked: string;
+    error?: string;
+  }> {
+    const res = await fetch(`${API_BASE}/supabase/status`);
+    return res.json();
+  },
+
+  async syncSupabase(): Promise<{ success: boolean; timestamp: string; results: any }> {
+    const res = await fetch(`${API_BASE}/supabase/sync`, { method: 'POST' });
+    return res.json();
+  },
+
+  async getSupabaseSql(): Promise<{ projectId: string; url: string; sql: string }> {
+    const res = await fetch(`${API_BASE}/supabase/sql`);
+    return res.json();
   }
 };
+

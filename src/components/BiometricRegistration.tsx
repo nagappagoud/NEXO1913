@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Student, StudentFaceProfile } from '../types';
 import { apiClient } from '../api';
+import { supabase } from '../lib/supabase';
 
 interface BiometricRegistrationProps {
   students: Student[];
@@ -404,6 +405,35 @@ export default function BiometricRegistration({ students, faceProfiles, onRefres
 
     addLog(`INITIATING COMMIT PROTOCOL: studentId=${activeRegStudent.id}, usn=${activeRegStudent.usn}`);
     
+    // Upload primary face image to Supabase Storage bucket "student-faces"
+    let uploadedFaceUrls: string[] = [...images];
+    try {
+      if (images.length > 0 && images[0].startsWith('data:image')) {
+        addLog(`Uploading face image to Supabase Storage bucket "student-faces"...`);
+        const fileName = `${activeRegStudent.usn}_${Date.now()}.jpg`;
+        const res = await fetch(images[0]);
+        const blob = await res.blob();
+        
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('student-faces')
+          .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+
+        if (!uploadErr && uploadData) {
+          const { data: pubData } = supabase.storage
+            .from('student-faces')
+            .getPublicUrl(fileName);
+          if (pubData?.publicUrl) {
+            uploadedFaceUrls[0] = pubData.publicUrl;
+            addLog(`Supabase Storage Upload SUCCESS: ${pubData.publicUrl}`);
+          }
+        } else {
+          addLog(`Supabase Storage Note: ${uploadErr?.message || 'Using base64 image data'}`);
+        }
+      }
+    } catch (storageErr: any) {
+      addLog(`Supabase Storage Exception: ${storageErr?.message || 'Proceeding with fallback'}`);
+    }
+
     // Check 7: Verify FaceAPI descriptors are serializable before storage
     addLog(`Checking serialization integrity of biometric matrices...`);
     const payload = {
@@ -412,7 +442,7 @@ export default function BiometricRegistration({ students, faceProfiles, onRefres
       usn: activeRegStudent.usn,
       department: activeRegStudent.department,
       registrationDate: new Date().toISOString().split('T')[0],
-      faceImages: images,
+      faceImages: uploadedFaceUrls,
       faceDescriptors: descriptors
     };
 

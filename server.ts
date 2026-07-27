@@ -3,6 +3,14 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { Student, Lecturer, TimetableSlot, AttendanceRecord, ActiveSession, Subject, StudentFaceProfile } from './src/types';
+import { 
+  checkSupabaseStatus, 
+  syncTableToSupabase, 
+  fetchTableFromSupabase, 
+  SQL_SCHEMA_SCRIPT, 
+  SUPABASE_URL, 
+  SUPABASE_PROJECT_ID 
+} from './src/lib/supabaseServer';
 
 const app = express();
 const PORT = 3000;
@@ -37,13 +45,9 @@ const saveTable = <T>(fileName: string, data: T[]) => {
 
 // Seed Datasets matching requirements
 const DEFAULT_STUDENTS: Student[] = [];
-
 const DEFAULT_LECTURERS: Lecturer[] = [];
-
 const DEFAULT_SUBJECTS: Subject[] = [];
-
 const DEFAULT_TIMETABLE: TimetableSlot[] = [];
-
 const DEFAULT_ATTENDANCE: AttendanceRecord[] = [];
 
 // Load database files ("tables")
@@ -57,13 +61,97 @@ let faceProfiles = loadTable<StudentFaceProfile>('db_face_profiles.json', []);
 // Smart scanning sessions
 let activeSessions: Map<string, ActiveSession> = new Map();
 
-// Save functions
-const saveStudents = () => saveTable('db_students.json', students);
-const saveLecturers = () => saveTable('db_lecturers.json', lecturers);
-const saveSubjects = () => saveTable('db_subjects.json', subjects);
-const saveTimetable = () => saveTable('db_timetable.json', timetable);
-const saveAttendance = () => saveTable('db_attendance.json', attendanceRecords);
-const saveFaceProfiles = () => saveTable('db_face_profiles.json', faceProfiles);
+// Save functions with Supabase sync
+const saveStudents = () => {
+  saveTable('db_students.json', students);
+  syncTableToSupabase('students', students).catch(err => console.error('Supabase students sync error:', err));
+};
+const saveLecturers = () => {
+  saveTable('db_lecturers.json', lecturers);
+  syncTableToSupabase('lecturers', lecturers).catch(err => console.error('Supabase lecturers sync error:', err));
+};
+const saveSubjects = () => {
+  saveTable('db_subjects.json', subjects);
+  syncTableToSupabase('subjects', subjects).catch(err => console.error('Supabase subjects sync error:', err));
+};
+const saveTimetable = () => {
+  saveTable('db_timetable.json', timetable);
+  syncTableToSupabase('timetable', timetable).catch(err => console.error('Supabase timetable sync error:', err));
+};
+const saveAttendance = () => {
+  saveTable('db_attendance.json', attendanceRecords);
+  syncTableToSupabase('attendance', attendanceRecords).catch(err => console.error('Supabase attendance sync error:', err));
+};
+const saveFaceProfiles = () => {
+  saveTable('db_face_profiles.json', faceProfiles);
+  syncTableToSupabase('face_profiles', faceProfiles).catch(err => console.error('Supabase face_profiles sync error:', err));
+};
+
+// Initial Supabase Sync & Fetch on server startup
+async function initSupabaseDataSync() {
+  console.log(`[Supabase Init] Checking project ${SUPABASE_PROJECT_ID} (${SUPABASE_URL})...`);
+  try {
+    const status = await checkSupabaseStatus();
+    console.log(`[Supabase Status] Connected: ${status.connected}, Detected Tables: ${status.tablesDetected.join(', ') || 'None'}`);
+
+    // Fetch from Supabase if tables exist
+    if (status.tablesDetected.includes('students')) {
+      const res = await fetchTableFromSupabase<Student>('students');
+      if (res.data && res.data.length > 0) {
+        students = res.data;
+        saveTable('db_students.json', students);
+      }
+    }
+    if (status.tablesDetected.includes('lecturers')) {
+      const res = await fetchTableFromSupabase<Lecturer>('lecturers');
+      if (res.data && res.data.length > 0) {
+        lecturers = res.data;
+        saveTable('db_lecturers.json', lecturers);
+      }
+    }
+    if (status.tablesDetected.includes('subjects')) {
+      const res = await fetchTableFromSupabase<Subject>('subjects');
+      if (res.data && res.data.length > 0) {
+        subjects = res.data;
+        saveTable('db_subjects.json', subjects);
+      }
+    }
+    if (status.tablesDetected.includes('timetable')) {
+      const res = await fetchTableFromSupabase<TimetableSlot>('timetable');
+      if (res.data && res.data.length > 0) {
+        timetable = res.data;
+        saveTable('db_timetable.json', timetable);
+      }
+    }
+    if (status.tablesDetected.includes('attendance')) {
+      const res = await fetchTableFromSupabase<AttendanceRecord>('attendance');
+      if (res.data && res.data.length > 0) {
+        attendanceRecords = res.data;
+        saveTable('db_attendance.json', attendanceRecords);
+      }
+    }
+    if (status.tablesDetected.includes('face_profiles')) {
+      const res = await fetchTableFromSupabase<StudentFaceProfile>('face_profiles');
+      if (res.data && res.data.length > 0) {
+        faceProfiles = res.data;
+        saveTable('db_face_profiles.json', faceProfiles);
+      }
+    }
+
+    // Push local data to Supabase if tables exist but were empty
+    await syncTableToSupabase('students', students);
+    await syncTableToSupabase('lecturers', lecturers);
+    await syncTableToSupabase('subjects', subjects);
+    await syncTableToSupabase('timetable', timetable);
+    await syncTableToSupabase('attendance', attendanceRecords);
+    await syncTableToSupabase('face_profiles', faceProfiles);
+  } catch (e) {
+    console.error('[Supabase Startup Sync Exception]', e);
+  }
+}
+
+initSupabaseDataSync();
+
 
 // Helper function to recalculate attendance percentages and write back to student records
 const updateAttendancePercentages = () => {
@@ -84,6 +172,40 @@ const updateAttendancePercentages = () => {
 
 // INITIAL CALL to keep baseline stats calculated correctly on start
 updateAttendancePercentages();
+
+// ======================== SUPABASE INTEGRATION API ========================
+app.get('/api/supabase/status', async (req, res) => {
+  try {
+    const status = await checkSupabaseStatus();
+    res.json(status);
+  } catch (err: any) {
+    res.status(500).json({ connected: false, error: err?.message || 'Failed to check status' });
+  }
+});
+
+app.post('/api/supabase/sync', async (req, res) => {
+  try {
+    const results = {
+      students: await syncTableToSupabase('students', students),
+      lecturers: await syncTableToSupabase('lecturers', lecturers),
+      subjects: await syncTableToSupabase('subjects', subjects),
+      timetable: await syncTableToSupabase('timetable', timetable),
+      attendance: await syncTableToSupabase('attendance', attendanceRecords),
+      face_profiles: await syncTableToSupabase('face_profiles', faceProfiles)
+    };
+    res.json({ success: true, timestamp: new Date().toISOString(), results });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Sync operation failed' });
+  }
+});
+
+app.get('/api/supabase/sql', (req, res) => {
+  res.json({
+    projectId: SUPABASE_PROJECT_ID,
+    url: SUPABASE_URL,
+    sql: SQL_SCHEMA_SCRIPT
+  });
+});
 
 // Authentication API
 app.post('/api/auth/login', (req, res) => {
