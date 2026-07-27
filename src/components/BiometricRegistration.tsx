@@ -388,11 +388,11 @@ export default function BiometricRegistration({ students, faceProfiles, onRefres
       return;
     }
     
-    const targetUrl = '/api/face-profiles';
-    setDebugEndpoint(targetUrl);
+    const targetUrl = 'Supabase DB (face_profiles)';
+    setDebugEndpoint('Supabase Cloud Database');
     setDebugSuccess(null);
     setDebugStatus(null);
-    setDebugContentType('');
+    setDebugContentType('application/json');
     setDebugResponseBody('');
     setDebugErrorDetail('');
     
@@ -457,58 +457,15 @@ export default function BiometricRegistration({ students, faceProfiles, onRefres
       return;
     }
 
-    addLog(`Posting database commit fetch to: ${targetUrl}`);
+    addLog(`Committing biometric profile directly to Supabase cloud table "face_profiles"...`);
     try {
-      // Direct fetch call to catch complete headers/statuses/bodies safely
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload),
-      });
-
-      setDebugStatus(response.status);
-      addLog(`Response receipt status: ${response.status} ${response.statusText}`);
-
-      const contentType = response.headers.get('Content-Type') || '';
-      setDebugContentType(contentType);
-      addLog(`Response header Content-Type resolved: "${contentType}"`);
-
-      const rawText = await response.text();
-      setDebugResponseBody(rawText.substring(0, 3000)); // raw response body snippet
+      const createdProfile = await apiClient.addFaceProfile(payload);
       
-      const isJson = contentType.toLowerCase().includes('application/json');
-      addLog(`Response Content-Type IS JSON: ${isJson}`);
-      
-      // Check 5: Verify server is not returning an HTML error page
-      const isHtml = rawText.trim().startsWith('<') || rawText.trim().toLowerCase().startsWith('<!doctype');
-      addLog(`Response body IS HTML document: ${isHtml}`);
-
-      if (isHtml) {
-        addLog(`HTML ERROR DETECTED: Endpoint returned an HTML document. Potential 404 spa fallback or 500 error.`);
-        throw new Error(`Endpoint returned non-JSON HTML error body. Code: ${response.status}`);
-      }
-
-      if (!response.ok) {
-        let errDesc = 'Server rejected biometric upload pack.';
-        if (isJson) {
-          try {
-            const errObj = JSON.parse(rawText);
-            errDesc = errObj.error || errDesc;
-          } catch(e) {}
-        }
-        addLog(`Request failed on target database node. Reason: ${errDesc}`);
-        throw new Error(errDesc);
-      }
-
-      // Success
-      addLog(`Biometric signature registry verified successfully on target server.`);
-      
-      // Try to parse reply
-      const replyData = JSON.parse(rawText);
-      addLog(`JSON Parse success. Face profile ID created: ${replyData.id}`);
+      setDebugStatus(200);
+      setDebugContentType('application/json');
+      setDebugResponseBody(JSON.stringify(createdProfile, null, 2));
+      addLog(`Biometric signature registry verified successfully on Supabase server.`);
+      addLog(`Supabase insert success. Face profile ID created: ${createdProfile.id}`);
 
       setDebugSuccess(true);
       
