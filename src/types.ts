@@ -3,6 +3,7 @@ export interface Student {
   usn: string;
   name: string;
   email: string;
+  phone?: string;
   department: string;
   semester: string;
   section: string; // added per spec
@@ -33,7 +34,7 @@ export interface AttendanceRecord {
   studentUsn: string; // USN code reference
   subjectCode: string; // Subject code reference
   date: string; // YYYY-MM-DD
-  status: 'Present' | 'Absent'; // status restricted to Present/Absent
+  status: 'Present' | 'Absent' | 'Late'; // status restricted to Present/Absent/Late
   studentId?: string; // compatibility key
   studentName?: string; // compatibility key
   timetableSlotId?: string; // compatibility key
