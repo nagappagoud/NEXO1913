@@ -716,84 +716,140 @@ export const apiClient = {
     return {
       projectId: SUPABASE_PROJECT_ID,
       url: SUPABASE_URL,
-      sql: `-- NEXO Biometric Attendance System - Production PostgreSQL Schema
+      sql: `-- ==============================================================================
+-- NEXO Biometric Attendance System - Production PostgreSQL Schema & Migrations
+-- Project URL: ${SUPABASE_URL}
+-- ==============================================================================
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- 1. STUDENTS TABLE
 CREATE TABLE IF NOT EXISTS students (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  usn VARCHAR(20) UNIQUE NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  email VARCHAR(150) UNIQUE NOT NULL,
-  phone_number VARCHAR(20),
-  department VARCHAR(50) NOT NULL,
-  semester VARCHAR(10) NOT NULL,
-  section VARCHAR(5) NOT NULL,
-  password VARCHAR(255) NOT NULL,
+  usn TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  phone_number TEXT,
+  department TEXT NOT NULL,
+  semester TEXT NOT NULL,
+  section TEXT NOT NULL,
+  password TEXT NOT NULL,
   face_image_url TEXT,
+  profile_photo TEXT,
+  profile_photo_url TEXT,
   face_descriptor JSONB DEFAULT '[]'::jsonb,
   registration_date TIMESTAMPTZ DEFAULT NOW(),
   attendance_percentage INTEGER DEFAULT 100,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 2. LECTURERS TABLE
 CREATE TABLE IF NOT EXISTS lecturers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  lecturer_id VARCHAR(30) UNIQUE NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  email VARCHAR(150) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  department VARCHAR(50) NOT NULL,
+  lecturer_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  department TEXT NOT NULL,
   subjects JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 3. SUBJECTS TABLE
 CREATE TABLE IF NOT EXISTS subjects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  subject_code VARCHAR(20) UNIQUE NOT NULL,
-  subject_name VARCHAR(150) NOT NULL,
-  semester VARCHAR(10) NOT NULL,
-  department VARCHAR(50) NOT NULL,
+  subject_code TEXT UNIQUE NOT NULL,
+  subject_name TEXT NOT NULL,
+  semester TEXT NOT NULL,
+  department TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 4. TIMETABLE TABLE
 CREATE TABLE IF NOT EXISTS timetable (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  subject_code VARCHAR(20) NOT NULL,
-  subject_name VARCHAR(150) NOT NULL,
-  lecturer_name VARCHAR(100) NOT NULL,
-  room VARCHAR(30) NOT NULL,
-  day VARCHAR(15) NOT NULL,
+  subject_code TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  lecturer_name TEXT NOT NULL,
+  room TEXT NOT NULL,
+  day TEXT NOT NULL,
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
-  department VARCHAR(50) NOT NULL,
-  semester VARCHAR(10) NOT NULL,
+  department TEXT NOT NULL,
+  semester TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5. ATTENDANCE TABLE
 CREATE TABLE IF NOT EXISTS attendance (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-  student_usn VARCHAR(20) NOT NULL,
-  student_name VARCHAR(100),
-  subject_code VARCHAR(20) NOT NULL,
+  student_usn TEXT NOT NULL,
+  student_name TEXT,
+  subject_code TEXT NOT NULL,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
-  status VARCHAR(10) NOT NULL,
-  verification_method VARCHAR(20) DEFAULT 'Face Recognition',
+  status TEXT NOT NULL,
+  verification_method TEXT DEFAULT 'Face Recognition',
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 6. FACE PROFILES TABLE
 CREATE TABLE IF NOT EXISTS face_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   student_id UUID UNIQUE REFERENCES students(id) ON DELETE CASCADE,
-  student_name VARCHAR(100) NOT NULL,
-  usn VARCHAR(20) NOT NULL,
-  department VARCHAR(50) NOT NULL,
+  student_name TEXT NOT NULL,
+  usn TEXT NOT NULL,
+  department TEXT NOT NULL,
   registration_date TIMESTAMPTZ DEFAULT NOW(),
   face_images JSONB DEFAULT '[]'::jsonb,
   face_descriptors JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ==============================================================================
+-- SCHEMA MIGRATIONS (EXPAND COLUMN LENGTHS - FIX VARCHAR OVERFLOW ERRORS)
+-- Run these statements in Supabase SQL Editor to expand existing columns to TEXT:
+-- ==============================================================================
+ALTER TABLE IF EXISTS students ALTER COLUMN section TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN semester TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN department TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN password TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN usn TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN name TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN email TYPE TEXT;
+ALTER TABLE IF EXISTS students ALTER COLUMN phone_number TYPE TEXT;
+ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS profile_photo TEXT;
+ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
+
+ALTER TABLE IF EXISTS lecturers ALTER COLUMN lecturer_id TYPE TEXT;
+ALTER TABLE IF EXISTS lecturers ALTER COLUMN name TYPE TEXT;
+ALTER TABLE IF EXISTS lecturers ALTER COLUMN email TYPE TEXT;
+ALTER TABLE IF EXISTS lecturers ALTER COLUMN password TYPE TEXT;
+ALTER TABLE IF EXISTS lecturers ALTER COLUMN department TYPE TEXT;
+
+ALTER TABLE IF EXISTS subjects ALTER COLUMN subject_code TYPE TEXT;
+ALTER TABLE IF EXISTS subjects ALTER COLUMN subject_name TYPE TEXT;
+ALTER TABLE IF EXISTS subjects ALTER COLUMN semester TYPE TEXT;
+ALTER TABLE IF EXISTS subjects ALTER COLUMN department TYPE TEXT;
+
+ALTER TABLE IF EXISTS timetable ALTER COLUMN subject_code TYPE TEXT;
+ALTER TABLE IF EXISTS timetable ALTER COLUMN subject_name TYPE TEXT;
+ALTER TABLE IF EXISTS timetable ALTER COLUMN lecturer_name TYPE TEXT;
+ALTER TABLE IF EXISTS timetable ALTER COLUMN room TYPE TEXT;
+ALTER TABLE IF EXISTS timetable ALTER COLUMN day TYPE TEXT;
+ALTER TABLE IF EXISTS timetable ALTER COLUMN department TYPE TEXT;
+ALTER TABLE IF EXISTS timetable ALTER COLUMN semester TYPE TEXT;
+
+ALTER TABLE IF EXISTS attendance ALTER COLUMN student_usn TYPE TEXT;
+ALTER TABLE IF EXISTS attendance ALTER COLUMN student_name TYPE TEXT;
+ALTER TABLE IF EXISTS attendance ALTER COLUMN subject_code TYPE TEXT;
+ALTER TABLE IF EXISTS attendance ALTER COLUMN status TYPE TEXT;
+ALTER TABLE IF EXISTS attendance ALTER COLUMN verification_method TYPE TEXT;
+
+ALTER TABLE IF EXISTS face_profiles ALTER COLUMN student_name TYPE TEXT;
+ALTER TABLE IF EXISTS face_profiles ALTER COLUMN usn TYPE TEXT;
+ALTER TABLE IF EXISTS face_profiles ALTER COLUMN department TYPE TEXT;
 `
     };
   }
